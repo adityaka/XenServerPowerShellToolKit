@@ -92,6 +92,8 @@ function Get-VMSnapShot{
 
 }
 
+#TODO: Write more stuff to manipulate snapshots and find VM snapshot references 
+#TODO: find a way to revert the snapshots to the VM 
 
 function ScriptEntry{
 
