@@ -1,11 +1,13 @@
 <#
  
+ .AUTHOR : Aditya Nath Kapur 
+ .SUMMARY 
  This script enumerates the snapshots for a vm and reverts it 
 
  Usefull commands for future 
  Get All VM Names  which have snapshots 
  get-xenvm | where-object -FilterScript { $_.snapshots.length -gt 0} | select-object -Property Name_Label 
-
+.DATE : 17-08-2016
 #>
 
 ## GLOBALS ##
