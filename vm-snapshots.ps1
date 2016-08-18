@@ -95,7 +95,12 @@ function Restore-Snapshot {
 
     $SnapShot = Get-VMSnapShots -VMName $VMName -SnapshotName $SnapShotName
     $VM = Get-XenVM -Name $VMName   
-    Invoke-XenVm -VM $VM -XenAction Revert -SnapShot $SnapShot 
+    #Revert Snapshot 
+    Invoke-XenVm -VM $VM -XenAction Revert -SnapShot $SnapShot
+
+    #check if the VM is off then turn it on 
+
+     
 
 }
 
