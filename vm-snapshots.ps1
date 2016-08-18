@@ -24,7 +24,9 @@
         [Parameter(Mandatory=$False)]
         [String]$XenserverPassword=$null ,
         [Parameter(Mandatory=$True)]
-        [String]$VmName
+        [String]$VmName,
+        [Parameter(Mandatory=$True)]
+        [String]$SnapShotName
         
     )
 
@@ -46,51 +48,58 @@ if ($XenserverModules.Length -le 0){
 
 ## functions 
 
-
-function Get-VMSnapShot{
+## Simplifying the logic instead of too many filtering options 
+## the only option to filter is the snapshot name 
+## this will only work for a linear snapshot tree
+## A recursive call can be made for snapshot tree 
+## the tree enumeration should be research in a different commandlet 
+function Get-VMSnapShots{
     param(
-        [String]$VMName ,
-        [String]$Filter=$null, #if someone is using By Ref they should have the string format as OpaqueRef:<uuid> (convert ToString)
-        [switch]$BySnapShotName=$False
+        [Parameter(Mandatory=$True)]
+        [String]$VMName,
+        [Parameter(Mandatory=$False)]
+        [String]$SnapshotName = $null 
     )
 
     $VMSnapShots = $null 
     try{
-    $VM = Get-XenVM -Name $VMName -ErrorAction Stop  
-    Write-Debug -Message ("Snapshots for this VM " + $VM.Snapshots.Length) 
+       $VM = Get-XenVM -Name $VMName -ErrorAction Stop  
+        Write-Debug -Message ("Snapshots for this VM " + $VM.Snapshots.Length) 
     
-     if( -not $Filter  ){
-         $VMSnapShots = $VM.Snapshots | %{(Get-XenVM -Ref $_.opaque_ref).Name_Label}
-         return $VMSnapShots
-
-     }
-
-     if($BySnapShotName){
-        $VMSnapshots = $VM.snapshots | %{ Get-XenVm -Ref $_.opaque_ref | where-object -FilterScript { $_.name_label -eq $Filter} }
-        if ($VMSnapShots.Length -le 0){
-            Write-Debug -Message "Can't find snapshots for the VM"
+        $VMSnapShots = $VM.Snapshots | %{ Get-XenVM -Ref $_.opaque_ref}
+        if ($SnapshotName){
+            $VMSnapShots = $VMSnapShots | Where-Object -FilterScript { $_.Name_Label -eq $SnapShotName}
         }
         return $VMSnapShots
-     }
-     else{
-         $VMSnapshots = $VM.snapshots | where-object -FilterScript {$_.opaque_ref.ToString() -eq $Filter }  
-        if ($VMSnapShots.Length -le 0){
-                Write-Debug -Message "Can't find snapshots for the VM using opaque reference"
-        }
-         return $VMSnapShots
-     }
 
      #bad procedural aproach but we will never reach here if we have find the bug and fix it 
       
 
     }
     catch {
-        Write-Error -Message "Can't Find VM Snapshots"  
+        Write-Error -Message "Can't Find VM Snapshots Last Exception message : "  
         write-error -Message $_.Exception 
     }
 
 
 }
+
+
+function Restore-Snapshot {
+    param(
+        [Parameter(Mandatory=$True)]
+        [string]$VMName,
+        [Parameter(Mandatory=$True)]
+        [string]$SnapShotName 
+    )
+
+    $SnapShot = Get-VMSnapShots -VMName $VMName -SnapshotName $SnapShotName
+    $VM = Get-XenVM -Name $VMName   
+    Invoke-XenVm -VM $VM -XenAction Revert -SnapShot $SnapShot 
+
+}
+
+
 
 #TODO: Write more stuff to manipulate snapshots and find VM snapshot references 
 #TODO: find a way to revert the snapshots to the VM 
@@ -106,8 +115,7 @@ function ScriptEntry{
     try{
     
     connect-xenserver -Server $XenserverAddress -UserName $XenserverUserName -Password $XenserverPassword -SetDefaultSession  
-    $VMSnapshots = Get-VMSnapShot -VMName $VmName 
-    $VMSnapshots | %{ Write-Host $_}
+    Restore-Snapshot -VMName $VmName -SnapShotName $SnapShotName 
    }
    catch{
        write-host "can't workout stuff "
